@@ -8,7 +8,10 @@ const char *keywords[] = {
     "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
     "unsigned", "void", "volatile", "while", "_Alignas", "_Alignof",
     "_Atomic", "_Bool", "_Complex", "_Generic", "_Imaginary", "_Noreturn",
-    "_Static_assert", "_Thread_local"
+    "_Static_assert", "_Thread_local", "#define", "#elif", "#else", "#endif",
+    "#error", "#if", "#ifdef", "#ifndef", "#include", "#line", "#pragma",
+    "%s", "%d", "%f", "%c", "%p", "%ld", "%lu", "%lld", "%llu", "%x", "%X",
+    "NULL", "true", "false", "%lf"
 };
 const size_t keyword_count = sizeof(keywords) / sizeof(keywords[0]);
 
@@ -27,7 +30,7 @@ void repl_mode() {
     printf("Entering REPL mode. Type 'exit' to quit.\n");
     char *input = NULL;
     size_t len = 0;
-    ssize_t read;
+    size_t read;
     
     while (1) {
         printf("> ");
@@ -98,6 +101,15 @@ void check_keywords(const char *input) {
                 // It's a number literal
                 continue;
             }
+            if ((tokens[i][0] == '\"' && tokens[i][strlen(tokens[i]) - 1] == '\"') ||
+                (tokens[i][0] == '\'' && tokens[i][strlen(tokens[i]) - 1] == '\'')) {
+                // It's a string or character literal
+                continue;
+            }
+            if (strchr(tokens[i], '\%') && strchr("diouxXeEfFgGaAcsCspn%", tokens[i][strlen(tokens[i]) - 1])) {
+                // It's a format specifier
+                continue;
+            }
             // It's an operator or other symbol
             const char *operators[] = {
                 "+", "-", "*", "/", "%", "++", "--", "==", "!=", ">", "<", ">=", "<=",
@@ -118,6 +130,11 @@ void check_keywords(const char *input) {
         }
     }
 
+    //print others tokens found 
+    for (size_t i = 0; i < token_count; ++i) {
+        printf("%s\n", tokens[i]);
+    }
+    check_balance(tokens, token_count);
     free_tokens(tokens, token_count);
 }
 
@@ -138,7 +155,15 @@ char** tokenize(const char *input, size_t *token_count) {
             while (isalnum(input[i]) || input[i] == '_') i++;
         } else if (isdigit(input[i])) {
             while (isdigit(input[i])) i++;
-        } else {
+        } else if (input[i] == '\"') {
+            i++;
+            while (input[i] != '\"' && input[i] != '\0') i++;
+            if (input[i] == '\"') i++;
+        } else if (input[i] == '\'') {
+            i++;
+            while (input[i] != '\'' && input[i] != '\0') i++;
+            if (input[i] == '\'') i++;
+        }else {
             char c = input[i];
             if (strchr("(){}[];,", c)) {
                 i++;
@@ -192,7 +217,38 @@ void free_tokens(char **tokens, size_t token_count) {
     free(tokens);
 }
 
-ssize_t custom_getline(char **lineptr, size_t *n, FILE *stream) {
+void check_balance(char **tokens, uint32_t token_count){
+    char stack[token_count];
+    int top = -1;
+
+    for (size_t i = 0; i < token_count; ++i) {
+        char *token = tokens[i];
+        size_t token_len = strlen(token);
+
+        for (size_t j = 0; j < token_len; ++j) {
+            char c = token[j];
+
+            if (c == '(' || c == '{' || c == '[') {
+                stack[++top] = c;
+            } else if (c == ')' || c == '}' || c == ']') {
+                if (top == -1) {
+                    printf("Error: Unbalanced closing bracket %c\n", c);
+                    return;
+                }
+
+                char open = stack[top--];
+                if ((open == '(' && c != ')') ||
+                    (open == '{' && c != '}') ||
+                    (open == '[' && c != ']')) {
+                    printf("Error: Mismatched brackets %c and %c\n", open, c);
+                    return;
+                }
+            }
+        }
+    }
+
+}
+int32_t custom_getline(char **lineptr, size_t *n, FILE *stream) {
     if (*lineptr == NULL) {
         *n = 128;
         *lineptr = malloc(*n);
