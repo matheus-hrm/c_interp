@@ -21,6 +21,10 @@ int main() {
     printf("Ola %s, você nasceu em %d e sua altura em polegadas e %.2f\n", nome, ano_nascimento, altura_em_polegadas);
     pritnf
     return 0;
+<<<<<<< Updated upstream:teste.c
     (
         ]]
 }
+=======
+
+>>>>>>> Stashed changes:program.c
